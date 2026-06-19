@@ -1,0 +1,1128 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Système de Surveillance de Température — IoT</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --green-900: #06351f;
+  --green-700: #0c5c34;
+  --green-600: #0f7a44;
+  --green-500: #129650;
+  --green-100: #e6f4ec;
+  --gold-600:  #c9920a;
+  --gold-500:  #e0a500;
+  --gold-400:  #f0bf3c;
+  --gold-100:  #fdf3da;
+  --red-600:   #c0392b;
+  --red-100:   #fde8e8;
+  --ink:    #1b2a22;
+  --muted:  #5c6e64;
+  --paper:  #fbfbf8;
+  --line:   #e1e8e1;
+  --white:  #ffffff;
+  --shadow-sm: 0 2px 8px rgba(6,53,31,0.06);
+  --shadow-md: 0 8px 30px rgba(6,53,31,0.10);
+  --shadow-lg: 0 20px 60px rgba(6,53,31,0.16);
+  --radius:    16px;
+  --radius-sm: 10px;
+  --font-head: "Poppins","Segoe UI",sans-serif;
+  --font-body: "Inter","Segoe UI",sans-serif;
+  --font-mono: "JetBrains Mono","Consolas",monospace;
+  --ease: cubic-bezier(0.22,0.61,0.36,1);
+}
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0; width: 100%; height: 100%;
+  overflow: hidden;
+  font-family: var(--font-body);
+  color: var(--ink);
+  background: #1b2a22;
+  -webkit-font-smoothing: antialiased;
+}
+
+.deck-outer {
+  position: fixed; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+}
+
+.deck {
+  position: relative;
+  width: 1280px; height: 720px;
+  transform-origin: center center;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--paper);
+}
+
+.bg-decor {
+  position: absolute; inset: 0; z-index: 0;
+  pointer-events: none; overflow: hidden;
+}
+.bg-decor::before, .bg-decor::after {
+  content: ""; position: absolute; border-radius: 50%;
+  filter: blur(60px); opacity: 0.35;
+}
+.bg-decor::before {
+  width: 520px; height: 520px;
+  background: radial-gradient(circle at 30% 30%, var(--green-100), transparent 70%);
+  top: -180px; right: -160px;
+}
+.bg-decor::after {
+  width: 460px; height: 460px;
+  background: radial-gradient(circle at 70% 70%, var(--gold-100), transparent 70%);
+  bottom: -160px; left: -140px;
+}
+
+.progress-track {
+  position: absolute; top: 0; left: 0; right: 0;
+  height: 4px; background: var(--line); z-index: 11;
+}
+.progress-fill {
+  height: 100%; width: 0%;
+  background: linear-gradient(90deg, var(--green-600), var(--gold-500));
+  transition: width .5s var(--ease);
+}
+
+.topbar {
+  position: absolute; top: 0; left: 0; right: 0;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 22px 48px; z-index: 10; pointer-events: none;
+}
+.topbar .brand {
+  display: flex; align-items: center; gap: 12px;
+  font-family: var(--font-head); font-weight: 600;
+  font-size: 14px; color: var(--green-700); letter-spacing: .04em;
+}
+.topbar .brand img.logo-img { height: 42px; width: auto; object-fit: contain; }
+.topbar .slide-counter {
+  font-family: var(--font-mono); font-size: 13px;
+  color: var(--muted); background: var(--white);
+  border: 1px solid var(--line); border-radius: 999px;
+  padding: 6px 16px; box-shadow: var(--shadow-sm);
+}
+.topbar .slide-counter b { color: var(--green-700); }
+
+.slide {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  padding: 64px 96px 96px;
+  opacity: 0; visibility: hidden;
+  transform: translateY(24px) scale(0.99);
+  transition: opacity .5s var(--ease), transform .6s var(--ease);
+  z-index: 1; overflow-y: auto;
+}
+.slide::-webkit-scrollbar { width: 6px; }
+.slide::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
+.slide::-webkit-scrollbar-thumb:hover { background: var(--gold-400); }
+.slide.active {
+  opacity: 1; visibility: visible;
+  transform: translateY(0) scale(1); z-index: 2;
+}
+.slide.prev { transform: translateY(-24px) scale(0.99); }
+
+.slide-eyebrow {
+  display: inline-flex; align-items: center; gap: 10px;
+  font-family: var(--font-head); font-weight: 600;
+  font-size: 13px; letter-spacing: .18em; text-transform: uppercase;
+  color: var(--green-600); margin-bottom: 14px;
+}
+.slide-eyebrow .icon { width: 18px; height: 18px; color: var(--gold-500); }
+
+.slide h1 {
+  font-family: var(--font-head); font-size: 40px;
+  font-weight: 700; line-height: 1.15;
+  margin: 0 0 8px; color: var(--green-900);
+}
+.slide h1 .accent { color: var(--gold-500); }
+.slide .subtitle {
+  font-size: 16px; color: var(--muted);
+  margin: 0 0 22px; max-width: 760px; line-height: 1.5;
+}
+.slide-body { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+
+.reveal {
+  opacity: 0; transform: translateY(18px);
+  transition: opacity .55s var(--ease), transform .55s var(--ease);
+}
+.slide.active .reveal { opacity: 1; transform: translateY(0); }
+.slide.active .reveal:nth-child(1)  { transition-delay: .05s; }
+.slide.active .reveal:nth-child(2)  { transition-delay: .12s; }
+.slide.active .reveal:nth-child(3)  { transition-delay: .19s; }
+.slide.active .reveal:nth-child(4)  { transition-delay: .26s; }
+.slide.active .reveal:nth-child(5)  { transition-delay: .33s; }
+.slide.active .reveal:nth-child(6)  { transition-delay: .40s; }
+.slide.active .reveal:nth-child(7)  { transition-delay: .47s; }
+.slide.active .reveal:nth-child(8)  { transition-delay: .54s; }
+.slide.active .reveal:nth-child(9)  { transition-delay: .61s; }
+.slide.active .reveal:nth-child(10) { transition-delay: .68s; }
+
+.navbar {
+  position: absolute; bottom: 20px; left: 0; right: 0;
+  display: flex; align-items: center; justify-content: center;
+  gap: 18px; z-index: 10;
+}
+.nav-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 42px; height: 42px; border-radius: 50%;
+  background: var(--white); border: 1px solid var(--line);
+  box-shadow: var(--shadow-sm); cursor: pointer; color: var(--green-700);
+  transition: transform .2s var(--ease), box-shadow .2s var(--ease), background .2s var(--ease);
+}
+.nav-btn:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); background: var(--green-100); }
+.nav-btn:active { transform: translateY(0); }
+.nav-btn.disabled { opacity: .35; pointer-events: none; }
+.nav-btn .icon { width: 18px; height: 18px; }
+.dots { display: flex; align-items: center; gap: 7px; padding: 0 8px; }
+.dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--line); cursor: pointer;
+  transition: all .25s var(--ease);
+}
+.dot:hover { background: var(--gold-400); }
+.dot.active { background: var(--green-600); width: 24px; border-radius: 5px; }
+
+.icon {
+  width: 24px; height: 24px; stroke: currentColor; fill: none;
+  stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0;
+}
+
+.grid { display: grid; gap: 16px; }
+.grid-2 { grid-template-columns: 1fr 1fr; }
+.grid-3 { grid-template-columns: repeat(3,1fr); }
+.grid-4 { grid-template-columns: repeat(4,1fr); }
+
+.card {
+  background: var(--white); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 18px 20px;
+  box-shadow: var(--shadow-sm);
+  transition: transform .25s var(--ease), box-shadow .25s var(--ease), border-color .25s var(--ease);
+}
+.card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); border-color: var(--green-500); }
+.card .card-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 40px; height: 40px; border-radius: 11px;
+  background: var(--green-100); color: var(--green-700); margin-bottom: 10px;
+}
+.card.gold .card-icon { background: var(--gold-100); color: var(--gold-600); }
+.card.red .card-icon { background: var(--red-100); color: var(--red-600); }
+.card h3 {
+  font-family: var(--font-head); font-size: 15px; font-weight: 600;
+  margin: 0 0 6px; color: var(--green-900);
+}
+.card p { font-size: 13px; line-height: 1.5; color: var(--muted); margin: 0; }
+
+.pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 11.5px; font-weight: 600; padding: 4px 11px;
+  border-radius: 999px; background: var(--green-100); color: var(--green-700);
+}
+.pill.gold { background: var(--gold-100); color: var(--gold-600); }
+
+.code {
+  font-family: var(--font-mono); font-size: 12px; line-height: 1.65;
+  background: var(--green-900); color: #d6f3e3;
+  border-radius: var(--radius-sm); padding: 16px 20px;
+  box-shadow: var(--shadow-md); overflow: auto;
+}
+.code .c-key  { color: var(--gold-400); }
+.code .c-str  { color: #9be3ff; }
+.code .c-num  { color: #ffb86c; }
+.code .c-com  { color: #7fae93; font-style: italic; }
+.code .c-fn   { color: #c5f0a4; }
+.code .c-type { color: #ff79c6; }
+
+.stat { text-align: center; padding: 16px; }
+.stat .stat-value {
+  font-family: var(--font-head); font-size: 36px; font-weight: 700;
+  color: var(--green-700); line-height: 1;
+}
+.stat .stat-value .unit { font-size: 17px; font-weight: 600; color: var(--gold-600); }
+.stat .stat-label {
+  margin-top: 6px; font-size: 11px; text-transform: uppercase;
+  letter-spacing: .08em; color: var(--muted); font-weight: 600;
+}
+
+.pipeline { display: flex; align-items: stretch; gap: 0; flex-wrap: wrap; }
+.pipe-step {
+  flex: 1; min-width: 110px;
+  background: var(--white); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 14px; text-align: center;
+  box-shadow: var(--shadow-sm);
+  transition: transform .25s var(--ease), box-shadow .25s var(--ease);
+}
+.pipe-step:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
+.pipe-step .card-icon { margin: 0 auto 10px; }
+.pipe-step h4 { font-family: var(--font-head); font-size: 13px; margin: 0 0 4px; color: var(--green-900); }
+.pipe-step p  { font-size: 11px; color: var(--muted); margin: 0; line-height: 1.4; }
+.pipe-arrow { display: flex; align-items: center; justify-content: center; color: var(--gold-500); padding: 0 4px; }
+.pipe-arrow .icon { width: 18px; height: 18px; }
+
+.cols { display: flex; gap: 28px; flex: 1; min-height: 0; }
+.col  { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+
+.step {
+  display: flex; gap: 12px; align-items: flex-start;
+  background: var(--white); border: 1px solid var(--line);
+  border-radius: var(--radius-sm); padding: 11px 14px;
+  box-shadow: var(--shadow-sm);
+}
+.step .step-num {
+  flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%;
+  background: var(--green-700); color: var(--white);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-head); font-weight: 700; font-size: 13px;
+}
+.step .step-text { font-size: 13px; line-height: 1.5; color: var(--ink); }
+.step .step-text b { color: var(--green-700); }
+
+.note-bar {
+  margin-top: auto; display: flex; align-items: center; gap: 10px;
+  background: var(--gold-100); border: 1px solid var(--gold-400);
+  border-radius: var(--radius-sm); padding: 11px 16px;
+  font-size: 12.5px; color: #5c4400;
+}
+.note-bar .icon { color: var(--gold-600); width: 20px; height: 20px; flex-shrink: 0; }
+
+table.results { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.results th, table.results td {
+  padding: 9px 13px; text-align: left; border-bottom: 1px solid var(--line);
+}
+table.results th {
+  font-family: var(--font-head); font-weight: 600;
+  color: var(--green-700); background: var(--green-100);
+}
+table.results td.num { font-family: var(--font-mono); font-weight: 700; color: var(--gold-600); }
+table.results tr:last-child td { border-bottom: none; }
+table.results tr.highlight td { background: var(--green-100); font-weight: 600; }
+
+.slide-title { align-items: center; justify-content: center; text-align: center; }
+.slide-title .logo-badge {
+  width: 100px; height: 100px; margin: 0 auto 20px;
+  display: flex; align-items: center; justify-content: center;
+}
+.slide-title .logo-badge img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.slide-title h1 { font-size: 46px; }
+.slide-title .subtitle { margin: 0 auto 22px; text-align: center; }
+.slide-title .meta {
+  display: flex; gap: 24px; justify-content: center; flex-wrap: wrap; margin-top: 10px;
+}
+.slide-title .meta-item {
+  display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted);
+}
+.slide-title .meta-item .icon { width: 16px; height: 16px; color: var(--green-600); }
+
+.authors-block {
+  display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; margin: 18px 0 0;
+}
+.author-card {
+  background: var(--white); border: 1px solid var(--line);
+  border-radius: var(--radius-sm); padding: 13px 20px;
+  text-align: center; box-shadow: var(--shadow-sm); min-width: 200px;
+}
+.author-card .author-name { font-family: var(--font-head); font-weight: 600; color: var(--green-900); font-size: 14px; }
+.author-card .author-id   { font-family: var(--font-mono); color: var(--gold-600); font-size: 12px; margin-top: 3px; }
+
+.formula-box {
+  background: var(--green-900); color: #d6f3e3;
+  border-radius: var(--radius-sm); padding: 16px 22px;
+  font-family: var(--font-mono); font-size: 13px; line-height: 2.1;
+  box-shadow: var(--shadow-md);
+}
+.formula-box .f-var { color: var(--gold-400); font-style: italic; }
+.formula-box .f-op  { color: #9be3ff; }
+.formula-box .f-com { color: #7fae93; font-style: italic; font-size: 11.5px; }
+
+.wiring-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.wiring-table th, .wiring-table td {
+  padding: 7px 10px; text-align: left; border-bottom: 1px solid var(--line);
+}
+.wiring-table th {
+  font-family: var(--font-head); font-weight: 600;
+  color: var(--green-700); background: var(--green-100); font-size: 11px;
+  text-transform: uppercase; letter-spacing: .06em;
+}
+.wiring-table td { font-size: 12px; }
+.wiring-table td code { font-family: var(--font-mono); color: var(--green-700); font-weight: 600; }
+.wiring-table tr:last-child td { border-bottom: none; }
+</style>
+</head>
+<body>
+
+<!-- ============ SVG ICON SPRITE ============ -->
+<svg style="display:none" aria-hidden="true">
+  <symbol id="i-thermo"   viewBox="0 0 24 24"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></symbol>
+  <symbol id="i-cpu"      viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></symbol>
+  <symbol id="i-target"   viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></symbol>
+  <symbol id="i-zap"      viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></symbol>
+  <symbol id="i-chart"    viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></symbol>
+  <symbol id="i-check"    viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></symbol>
+  <symbol id="i-alert"    viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></symbol>
+  <symbol id="i-list"     viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></symbol>
+  <symbol id="i-arrow-right" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></symbol>
+  <symbol id="i-arrow-left"  viewBox="0 0 24 24"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></symbol>
+  <symbol id="i-flag"     viewBox="0 0 24 24"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></symbol>
+  <symbol id="i-layers"   viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></symbol>
+  <symbol id="i-grid"     viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></symbol>
+  <symbol id="i-award"    viewBox="0 0 24 24"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></symbol>
+  <symbol id="i-trend"    viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></symbol>
+  <symbol id="i-clock"    viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></symbol>
+  <symbol id="i-shield"   viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></symbol>
+  <symbol id="i-sliders"  viewBox="0 0 24 24"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></symbol>
+  <symbol id="i-eye"      viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-wifi"     viewBox="0 0 24 24"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></symbol>
+  <symbol id="i-bell"     viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></symbol>
+  <symbol id="i-monitor"  viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></symbol>
+  <symbol id="i-tool"     viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></symbol>
+  <symbol id="i-activity" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></symbol>
+  <symbol id="i-book"     viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></symbol>
+  <symbol id="i-bulb"     viewBox="0 0 24 24"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z"/></symbol>
+  <symbol id="i-map"      viewBox="0 0 24 24"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></symbol>
+  <symbol id="i-git"      viewBox="0 0 24 24"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></symbol>
+  <symbol id="i-database" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></symbol>
+  <symbol id="i-compass"  viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></symbol>
+  <symbol id="i-help"     viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></symbol>
+  <symbol id="i-speaker"  viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></symbol>
+</svg>
+
+<!-- ============ DECK OUTER ============ -->
+<div class="deck-outer">
+<main class="deck" id="deck">
+
+  <div class="bg-decor"></div>
+  <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+
+  <!-- top bar -->
+  <header class="topbar">
+    <div class="brand">
+      <img class="logo-img" src="../diagrams/logo_un.png" alt="Université de Nouakchott" onerror="this.style.display='none'">
+      <span>Internet des Objets &mdash; M1 IA</span>
+    </div>
+    <div class="slide-counter"><b id="slideNum">01</b> / <span id="slideTotal">14</span></div>
+  </header>
+
+  <!-- ===================== SLIDE 1 — COUVERTURE ===================== -->
+  <section class="slide slide-title">
+    <div class="slide-body" style="justify-content:center;">
+      <div class="reveal logo-badge">
+        <img src="../diagrams/logo_un.png" alt="Université de Nouakchott" style="width:100px;height:100px;object-fit:contain;" onerror="this.parentElement.innerHTML='&#127777;'">
+      </div>
+      <div class="reveal slide-eyebrow" style="justify-content:center;">
+        <svg class="icon"><use href="#i-thermo"/></svg>
+        Projet IoT &mdash; Module Internet des Objets &mdash; M1 IA
+      </div>
+      <h1 class="reveal">Système de Surveillance de <span class="accent">Température</span></h1>
+      <p class="reveal subtitle">
+        Prototype basé sur <strong>Arduino Uno</strong> et capteur <strong>TMP36</strong>,
+        avec alertes visuelles (<strong>LEDs</strong>) et sonores (<strong>Buzzer</strong>)
+        &mdash; simulé et validé sur <strong>Tinkercad Circuits</strong>.
+      </p>
+      <div class="reveal authors-block">
+        <div class="author-card">
+          <div class="author-name">Moustapha Yehdih</div>
+          <div class="author-id">Matricule : C34613</div>
+        </div>
+        <div class="author-card">
+          <div class="author-name">Mohamed Salem Ebnou Echvagha Oubeid</div>
+          <div class="author-id">Matricule : C34794</div>
+        </div>
+      </div>
+      <div class="reveal meta" style="margin-top:18px;">
+        <div class="meta-item"><svg class="icon"><use href="#i-award"/></svg> Université de Nouakchott &mdash; FST</div>
+        <div class="meta-item"><svg class="icon"><use href="#i-cpu"/></svg> Arduino &middot; TMP36 &middot; Tinkercad</div>
+        <div class="meta-item"><svg class="icon"><use href="#i-clock"/></svg> Juin 2026</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== SLIDE 2 — PLAN ===================== -->
+  <section class="slide">
+    <div class="slide-eyebrow reveal"><svg class="icon"><use href="#i-list"/></svg> Sommaire</div>
+    <h1 class="reveal">Plan de la présentation</h1>
+    <p class="subtitle reveal">Douze étapes pour comprendre comment un Arduino surveille la température et déclenche des alertes automatiques.</p>
+    <div class="slide-body">
+      <div class="grid grid-2" style="gap:12px;">
+        <div class="step reveal"><div class="step-num">1</div><div class="step-text"><b>Introduction &amp; Problématique</b><br>Pourquoi surveiller la température ? Applications et enjeux.</div></div>
+        <div class="step reveal"><div class="step-num">2</div><div class="step-text"><b>L'IoT — Vue d'ensemble</b><br>Définition, architecture 4 couches, analogie avec le corps humain.</div></div>
+        <div class="step reveal"><div class="step-num">3</div><div class="step-text"><b>La plateforme Arduino</b><br>Microcontrôleur ATmega328P, Arduino Uno, pourquoi Arduino ?</div></div>
+        <div class="step reveal"><div class="step-num">4</div><div class="step-text"><b>Composants utilisés</b><br>TMP36, LEDs, Buzzer, Résistances, Breadboard.</div></div>
+        <div class="step reveal"><div class="step-num">5</div><div class="step-text"><b>Architecture du système</b><br>Pipeline : Capteur → Traitement → Actuateurs + Moniteur série.</div></div>
+        <div class="step reveal"><div class="step-num">6</div><div class="step-text"><b>Conception du circuit</b><br>Câblage pin-par-pin, schéma Tinkercad.</div></div>
+        <div class="step reveal"><div class="step-num">7</div><div class="step-text"><b>Code Arduino</b><br>setup(), loop(), analogRead(), conversion, logique de seuil.</div></div>
+        <div class="step reveal"><div class="step-num">8</div><div class="step-text"><b>Simulation &amp; Résultats</b><br>Tests Tinkercad, scénarios normal/alerte, moniteur série.</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== SLIDE 3 — INTRODUCTION ===================== -->
+  <section class="slide">
+    <div class="slide-eyebrow reveal"><svg class="icon"><use href="#i-thermo"/></svg> Introduction</div>
+    <h1 class="reveal">Problématique &amp; motivation</h1>
+    <p class="subtitle reveal">La température est un paramètre critique dans l'industrie, la santé et la vie quotidienne. Sa surveillance automatisée est un besoin fondamental.</p>
+    <div class="slide-body cols">
+      <div class="col" style="gap:12px;display:flex;flex-direction:column;">
+        <div class="card reveal">
+          <div class="card-icon"><svg class="icon"><use href="#i-shield"/></svg></div>
+          <h3>Sécurité industrielle</h3>
+          <p>Les machines industrielles, serveurs informatiques et entrepôts pharmaceutiques nécessitent une surveillance <strong>continue</strong> de la température pour prévenir les pannes, les pertes de stock et les risques d'incendie.</p>
+        </div>
+        <div class="card reveal">
+          <div class="card-icon"><svg class="icon"><use href="#i-activity"/></svg></div>
+          <h3>Santé et agriculture</h3>
+          <p>Chaîne du froid pour les médicaments et vaccins, surveillance des serres agricoles, contrôle du confort thermique dans les bâtiments — la température impacte de nombreux domaines critiques.</p>
+        </div>
+        <div class="card reveal">
+          <div class="card-icon"><svg class="icon"><use href="#i-zap"/></svg></div>
+          <h3>Solution IoT à faible coût</h3>
+          <p>Un <strong>Arduino Uno</strong> (~5€) + un capteur <strong>TMP36</strong> (~1€) = un système de surveillance fonctionnel pour moins de <strong>10€</strong>. Accessible, reproductible et extensible.</p>
+        </div>
+      </div>
+      <div class="col" style="gap:12px;display:flex;flex-direction:column;">
+        <div class="grid grid-2">
+          <div class="stat card reveal"><div class="stat-value">&lt;10<span class="unit">€</span></div><div class="stat-label">Coût total</div></div>
+          <div class="stat card reveal"><div class="stat-value">24<span class="unit">/7</span></div><div class="stat-label">Surveillance continue</div></div>
+          <div class="stat card reveal"><div class="stat-value">±1<span class="unit">°C</span></div><div class="stat-label">Précision TMP36</div></div>
+          <div class="stat card gold reveal"><div class="stat-value">1<span class="unit">s</span></div><div class="stat-label">Temps de réaction</div></div>
+        </div>
+        <div class="note-bar reveal" style="margin-top:0;">
+          <svg class="icon"><use href="#i-alert"/></svg>
+          <div><b>Objectif :</b> Concevoir un système qui mesure, affiche et réagit automatiquement aux variations de température — le prototype IoT fondamental.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== SLIDE 4 — IoT ===================== -->
+  <section class="slide">
+    <div class="slide-eyebrow reveal"><svg class="icon"><use href="#i-wifi"/></svg> Fondamentaux</div>
+    <h1 class="reveal">L'Internet des <span class="accent">Objets</span> (IoT)</h1>
+    <p class="subtitle reveal">L'IoT connecte le monde physique au numérique — des capteurs qui sentent, un cerveau qui traite, des actuateurs qui réagissent.</p>
+    <div class="slide-body cols">
+      <div class="col" style="gap:12px;display:flex;flex-direction:column;">
+        <div class="card reveal">
+          <div class="card-icon"><svg class="icon"><use href="#i-layers"/></svg></div>
+          <h3>Architecture 4 couches</h3>
+          <p><strong>1. Perception</strong> — Capteurs (température, humidité, mouvement)<br>
+             <strong>2. Réseau</strong> — WiFi, Bluetooth, LoRa, Zigbee<br>
+             <strong>3. Traitement</strong> — Microcontrôleur / Serveur<br>
+             <strong>4. Application</strong> — Interface utilisateur / Dashboard</p>
+        </div>
+        <div class="card gold reveal">
+          <div class="card-icon"><svg class="icon"><use href="#i-eye"/></svg></div>
+          <h3>Analogie : le corps humain</h3>
+          <p><strong>Capteurs</strong> = organes sensoriels (peau, yeux, oreilles)<br>
+             <strong>Microcontrôleur</strong> = cerveau qui analyse<br>
+             <strong>Actuateurs</strong> = muscles qui réagissent<br>
+             <strong>Communication</strong> = système nerveux</p>
+        </div>
+        <div class="note-bar reveal" style="margin-top:0;">
+          <svg class="icon"><use href="#i-alert"/></svg>
+          <div><b>Notre projet</b> implémente les couches <b>perception</b> (TMP36) et <b>traitement</b> (Arduino). Pour devenir IoT complet, il faudrait ajouter un module <b>WiFi</b> (ESP8266/ESP32).</div>
+        </div>
+      </div>
+      <div class="col" style="gap:12px;display:flex;flex-direction:column;">
+        <div class="card reveal">
+          <div class="card-icon"><svg class="icon"><use href="#i-map"/></svg></div>
+          <h3>Applications IoT</h3>
+          <table class="results" style="margin-top:6px;">
+            <thead><tr><th>Domaine</th><th>Application</th></tr></thead>
+            <tbody>
+              <tr><td>Santé</td><td>Suivi température corporelle</td></tr>
+              <tr><td>Industrie</td><td>Surveillance machines</td></tr>
+              <tr><td>Agriculture</td><td>Irrigation automatique</td></tr>
+              <tr><td>Maison</td><td>Thermostat intelligent</td></tr>
+              <tr><td>Transport</td><td>Chaîne du froid</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="grid grid-2">
+          <div class="stat card reveal"><div class="stat-value">75<span class="unit">Md</span></div><div class="stat-label">Objets IoT en 2030</div></div>
+          <div class="stat card reveal"><div class="stat-value">4</div><div class="stat-label">Couches IoT</div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== SLIDE 5 — ARDUINO ===================== -->
+  <section class="slide">
+    <div class="slide-eyebrow reveal"><svg class="icon"><use href="#i-cpu"/></svg> Plateforme</div>
+    <h1 class="reveal">Arduino <span class="accent">Uno</span></h1>
+    <p class="subtitle reveal">Plateforme de prototypage open-source — un microcontrôleur ATmega328P, un IDE simplifié et une communauté immense.</p>
+    <div class="slide-body cols">
+      <div class="col" style="gap:12px;display:flex;flex-direction:column;">
+        <div class="card reveal">
+          <div class="card-icon"><svg class="icon"><use href="#i-cpu"/></svg></div>
+          <h3>Spécifications techniques</h3>
+          <table class="results" style="margin-top:6px;">
+            <thead><tr><th>Caractéristique</th><th>Valeur</th></tr></thead>
+            <tbody>
+              <tr><td>Microcontrôleur</td><td class="num">ATmega328P</td></tr>
+              <tr><td>Tension</td><td class="num">5V</td></tr>
+              <tr><td>Broches numériques</td><td class="num">14 (6 PWM)</td></tr>
+              <tr><td>Broches analogiques</td><td class="num">6 (A0–A5)</td></tr>
+              <tr><td>Résolution CAN</td><td class="num">10 bits</td></tr>
+              <tr><td>Mémoire Flash</td><td class="num">32 Ko</td></tr>
+              <tr><td>Horloge</td><td class="num">16 MHz</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="col" style="gap:12px;display:flex;flex-direction:column;">
+        <div class="card reveal">
+          <div class="card-icon"><svg class="icon"><use href="#i-check"/></svg></div>
+          <h3>Pourquoi Arduino pour l'IoT ?</h3>
+          <p><strong>Simple</strong> — Langage C/C++ simplifié, pas besoin de connaissances avancées en électronique.<br>
+             <strong>Économique</strong> — 5 à 25€ selon le modèle.<br>
+             <strong>Communauté</strong> — Des millions de tutoriels et projets open-source.<br>
+             <strong>Simulable</strong> — Tinkercad permet de tester gratuitement sans matériel.</p>
+        </div>
+        <div class="card gold reveal">
+          <div class="card-icon"><svg class="icon"><use href="#i-monitor"/></svg></div>
+          <h3>Tinkercad Circuits</h3>
+          <p>Simulateur en ligne gratuit par <strong>Autodesk</strong>. Permet d'assembler des circuits virtuels, d'écrire du code Arduino et de simuler le comportement — <strong>sans acheter de composants</strong>.</p>
+        </div>
+        <div class="note-bar reveal" style="margin-top:0;">
+          <svg class="icon"><use href="#i-zap"/></svg>
+          <div><b>CAN 10 bits</b> : l'Arduino convertit une tension 0–5V en 1024 niveaux (0–1023). Résolution ≈ <b>4.88 mV</b> par unité.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== SLIDE 6 — COMPOSANTS ===================== -->
+  <section class="slide">
+    <div class="slide-eyebrow reveal"><svg class="icon"><use href="#i-tool"/></svg> Composants</div>
+    <h1 class="reveal">Composants du <span class="accent">système</span></h1>
+    <p class="subtitle reveal">Six composants essentiels pour un prototype fonctionnel — chacun a un rôle précis dans la chaîne Entrée → Traitement → Sortie.</p>
+    <div class="slide-body">
+      <div class="grid grid-3">
+        <div class="card reveal">
+          <div class="card-icon"><svg class="icon"><use href="#i-thermo"/></svg></div>
+          <h3>Capteur TMP36</h3>
+          <p>Capteur <strong>analogique</strong> de température. Plage : -40°C à +125°C. Précision : ±1°C. Sortie : 10mV/°C avec offset 500mV. Formule : <code>T = (V-0.5)×100</code>.</p>
+        </div>
+        <div class="card reveal">
+          <div class="card-icon" style="background:#dcfce7;color:#16a34a"><svg class="icon"><use href="#i-bulb"/></svg></div>
+          <h3>LED Verte</h3>
+          <p>Indicateur visuel <strong>état normal</strong>. S'allume quand la température est sous le seuil. Connectée via résistance 220Ω pour limiter le courant à ~13.6 mA.</p>
+        </div>
+        <div class="card red reveal">
+          <div class="card-icon"><svg class="icon"><use href="#i-alert"/></svg></div>
+          <h3>LED Rouge</h3>
+          <p>Indicateur visuel <strong>état d'alerte</strong>. S'allume quand la température dépasse le seuil. Même protection par résistance 220Ω.</p>
+        </div>
+        <div class="card gold reveal">
+          <div class="card-icon"><svg class="icon"><use href="#i-speaker"/></svg></div>
+          <h3>Buzzer Piézoélectrique</h3>
+          <p>Alarme <strong>sonore</strong>. Activé par <code>tone(pin, 1000Hz)</code>. Cristal piézo qui vibre à la fréquence du signal carré généré par l'Arduino.</p>
+        </div>
+        <div class="card reveal">
+          <div class="card-icon"><svg class="icon"><use href="#i-sliders"/></svg></div>
+          <h3>Résistances 220Ω (×2)</h3>
+          <p><strong>Protection</strong> des LEDs. Loi d'Ohm : I = (5V-2V)/220Ω ≈ 13.6 mA. Sans résistance, le courant détruirait la LED (max 20 mA).</p>
+        </div>
+        <div class="card reveal">
+          <div class="card-icon"><svg class="icon"><use href="#i-grid"/></svg></div>
+          <h3>Breadboard + Fils</h3>
+          <p>Plaque d'essai <strong>sans soudure</strong> pour le prototypage rapide. Rails d'alimentation (+5V, GND) et groupes de connexion horizontaux.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== SLIDE 7 — ARCHITECTURE ===================== -->
+  <section class="slide">
+    <div class="slide-eyebrow reveal"><svg class="icon"><use href="#i-layers"/></svg> Architecture</div>
+    <h1 class="reveal">Architecture du <span class="accent">système</span></h1>
+    <p class="subtitle reveal">Modèle classique IoT : Entrée → Traitement → Sortie — le capteur mesure, l'Arduino décide, les actuateurs réagissent.</p>
+    <div class="slide-body" style="gap:20px;">
+      <div class="reveal">
+        <div class="pill"><svg class="icon" style="width:13px;height:13px"><use href="#i-activity"/></svg> Flux de données</div>
+        <div class="pipeline" style="margin-top:10px;">
+          <div class="pipe-step"><div class="card-icon"><svg class="icon"><use href="#i-thermo"/></svg></div><h4>TMP36</h4><p>Mesure température<br>→ tension analogique</p></div>
+          <div class="pipe-arrow"><svg class="icon"><use href="#i-arrow-right"/></svg></div>
+          <div class="pipe-step"><div class="card-icon"><svg class="icon"><use href="#i-cpu"/></svg></div><h4>Arduino A0</h4><p>CAN 10 bits<br>0–1023</p></div>
+          <div class="pipe-arrow"><svg class="icon"><use href="#i-arrow-right"/></svg></div>
+          <div class="pipe-step"><div class="card-icon" style="background:var(--gold-100);color:var(--gold-600)"><svg class="icon"><use href="#i-sliders"/></svg></div><h4>Conversion</h4><p>Valeur brute → Volts<br>→ °C</p></div>
+          <div class="pipe-arrow"><svg class="icon"><use href="#i-arrow-right"/></svg></div>
+          <div class="pipe-step"><div class="card-icon" style="background:var(--gold-100);color:var(--gold-600)"><svg class="icon"><use href="#i-target"/></svg></div><h4>Comparaison</h4><p>T &lt; 30°C ?<br>Seuil d'alerte</p></div>
+          <div class="pipe-arrow"><svg class="icon"><use href="#i-arrow-right"/></svg></div>
+          <div class="pipe-step"><div class="card-icon" style="background:var(--gold-100);color:var(--gold-600)"><svg class="icon"><use href="#i-bell"/></svg></div><h4>Réaction</h4><p>LEDs + Buzzer<br>+ Moniteur série</p></div>
+        </div>
+      </div>
+      <div class="reveal">
+        <div class="pill gold"><svg class="icon" style="width:13px;height:13px"><use href="#i-sliders"/></svg> Logique de décision</div>
+        <div class="grid grid-2" style="margin-top:10px;">
+          <div class="card" style="border-left:4px solid #16a34a;">
+            <h3 style="color:#16a34a;">✅ Température &lt; 30°C — NORMAL</h3>
+            <p>LED verte <strong>ALLUMÉE</strong> &middot; LED rouge <strong>ÉTEINTE</strong> &middot; Buzzer <strong>ÉTEINT</strong><br>Moniteur série : <code>Statut : NORMAL</code></p>
+          </div>
+          <div class="card" style="border-left:4px solid #c0392b;">
+            <h3 style="color:#c0392b;">🔴 Température ≥ 30°C — ALERTE</h3>
+            <p>LED verte <strong>ÉTEINTE</strong> &middot; LED rouge <strong>ALLUMÉE</strong> &middot; Buzzer <strong>1000 Hz</strong><br>Moniteur série : <code>*** ALERTE ***</code></p>
+          </div>
+        </div>
+      </div>
+      <div class="note-bar reveal">
+        <svg class="icon"><use href="#i-alert"/></svg>
+        <div><b>Edge Computing :</b> l'Arduino traite les données <i>localement</i> sans Internet — il lit, compare et réagit en temps réel. C'est le principe du traitement « au bord » du réseau.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== SLIDE 8 — CIRCUIT ===================== -->
+  <section class="slide">
+    <div class="slide-eyebrow reveal"><svg class="icon"><use href="#i-compass"/></svg> Circuit</div>
+    <h1 class="reveal">Conception du <span class="accent">circuit</span></h1>
+    <p class="subtitle reveal">Câblage détaillé pin-par-pin — chaque connexion entre les composants et l'Arduino Uno.</p>
+    <div class="slide-body cols">
+      <div class="col" style="gap:12px;display:flex;flex-direction:column;">
+        <div class="card reveal">
+          <div class="card-icon"><svg class="icon"><use href="#i-grid"/></svg></div>
+          <h3>Tableau de câblage</h3>
+          <table class="wiring-table" style="margin-top:6px;">
+            <thead><tr><th>Composant</th><th>Broche</th><th>Arduino</th></tr></thead>
+            <tbody>
+              <tr><td>TMP36 VCC</td><td>Gauche</td><td><code>5V</code></td></tr>
+              <tr><td>TMP36 Signal</td><td>Centre</td><td><code>A0</code></td></tr>
+              <tr><td>TMP36 GND</td><td>Droite</td><td><code>GND</code></td></tr>
+              <tr><td>LED Verte (+)</td><td>Anode</td><td><code>D3</code> via 220Ω</td></tr>
+              <tr><td>LED Verte (−)</td><td>Cathode</td><td><code>GND</code></td></tr>
+              <tr><td>LED Rouge (+)</td><td>Anode</td><td><code>D4</code> via 220Ω</td></tr>
+              <tr><td>LED Rouge (−)</td><td>Cathode</td><td><code>GND</code></td></tr>
+              <tr><td>Buzzer (+)</td><td>Positive</td><td><code>D5</code></td></tr>
+              <tr><td>Buzzer (−)</td><td>Négative</td><td><code>GND</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="col" style="gap:12px;display:flex;flex-direction:column;">
+        <div class="card reveal">
+          <div class="card-icon"><svg class="icon"><use href="#i-map"/></svg></div>
+          <h3>Schéma textuel</h3>
+          <div class="code" style="font-size:11px;line-height:1.7;">
+<span class="c-com">// Alimentation</span><br>
+Arduino <span class="c-key">5V</span> ──────── TMP36 VCC<br>
+Arduino <span class="c-key">GND</span> ─────── TMP36 GND<br><br>
+<span class="c-com">// Signal capteur</span><br>
+Arduino <span class="c-key">A0</span> ──────── TMP36 Signal<br><br>
+<span class="c-com">// LEDs (avec résistances)</span><br>
+Arduino <span class="c-key">D3</span> ─[<span class="c-num">220Ω</span>]─ LED Verte(+) ── GND<br>
+Arduino <span class="c-key">D4</span> ─[<span class="c-num">220Ω</span>]─ LED Rouge(+) ── GND<br><br>
+<span class="c-com">// Buzzer (sans résistance)</span><br>
+Arduino <span class="c-key">D5</span> ──────── Buzzer(+) ──── GND
+          </div>
+        </div>
+        <div class="card gold reveal">
+          <div class="card-icon"><svg class="icon"><use href="#i-thermo"/></svg></div>
+          <h3>TMP36 — Brochage</h3>
+          <p>Vue de face (partie plate vers vous) :<br>
+             <strong>Gauche</strong> = VCC (5V) &middot; <strong>Centre</strong> = Signal (A0) &middot; <strong>Droite</strong> = GND<br>
+             ⚠️ Si inversé → valeurs aberrantes (-50°C) et risque de dommage.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== SLIDE 9 — CODE ===================== -->
+  <section class="slide">
+    <div class="slide-eyebrow reveal"><svg class="icon"><use href="#i-zap"/></svg> Code Arduino</div>
+    <h1 class="reveal">Implémentation <span class="accent">logicielle</span></h1>
+    <p class="subtitle reveal">Structure standard Arduino : <code>setup()</code> pour l'initialisation, <code>loop()</code> pour la boucle infinie de lecture et de décision.</p>
+    <div class="slide-body cols">
+      <div class="col reveal">
+        <div class="code" style="font-size:11.5px;">
+<span class="c-com">// Constantes</span><br>
+<span class="c-key">const int</span>   CAPTEUR   = <span class="c-num">A0</span>;<br>
+<span class="c-key">const int</span>   LED_VERTE = <span class="c-num">3</span>;<br>
+<span class="c-key">const int</span>   LED_ROUGE = <span class="c-num">4</span>;<br>
+<span class="c-key">const int</span>   BUZZER    = <span class="c-num">5</span>;<br>
+<span class="c-key">const float</span> SEUIL     = <span class="c-num">30.0</span>;<br><br>
+<span class="c-key">void</span> <span class="c-fn">setup</span>() {<br>
+&nbsp;&nbsp;Serial.<span class="c-fn">begin</span>(<span class="c-num">9600</span>);<span class="c-com"> // Com. série</span><br>
+&nbsp;&nbsp;<span class="c-fn">pinMode</span>(LED_VERTE, <span class="c-key">OUTPUT</span>);<br>
+&nbsp;&nbsp;<span class="c-fn">pinMode</span>(LED_ROUGE, <span class="c-key">OUTPUT</span>);<br>
+&nbsp;&nbsp;<span class="c-fn">pinMode</span>(BUZZER, <span class="c-key">OUTPUT</span>);<br>
+}<br><br>
+<span class="c-key">void</span> <span class="c-fn">loop</span>() {<br>
+&nbsp;&nbsp;<span class="c-com">// 1. Lire valeur brute (0-1023)</span><br>
+&nbsp;&nbsp;<span class="c-key">int</span> brute = <span class="c-fn">analogRead</span>(CAPTEUR);<br><br>
+&nbsp;&nbsp;<span class="c-com">// 2. Convertir en tension</span><br>
+&nbsp;&nbsp;<span class="c-key">float</span> tension = brute * (<span class="c-num">5.0</span>/<span class="c-num">1024.0</span>);<br><br>
+&nbsp;&nbsp;<span class="c-com">// 3. Convertir en °C</span><br>
+&nbsp;&nbsp;<span class="c-key">float</span> temp = (tension - <span class="c-num">0.5</span>) * <span class="c-num">100.0</span>;<br><br>
+&nbsp;&nbsp;<span class="c-com">// 4. Logique de décision</span><br>
+&nbsp;&nbsp;<span class="c-key">if</span> (temp &lt; SEUIL) {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="c-fn">digitalWrite</span>(LED_VERTE, <span class="c-key">HIGH</span>);<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="c-fn">digitalWrite</span>(LED_ROUGE, <span class="c-key">LOW</span>);<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="c-fn">noTone</span>(BUZZER);<br>
+&nbsp;&nbsp;} <span class="c-key">else</span> {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="c-fn">digitalWrite</span>(LED_VERTE, <span class="c-key">LOW</span>);<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="c-fn">digitalWrite</span>(LED_ROUGE, <span class="c-key">HIGH</span>);<br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="c-fn">tone</span>(BUZZER, <span class="c-num">1000</span>);<br>
+&nbsp;&nbsp;}<br>
+&nbsp;&nbsp;<span class="c-fn">delay</span>(<span class="c-num">1000</span>);<span class="c-com"> // 1 seconde</span><br>
+}
+        </div>
+      </div>
+      <div class="col" style="gap:10px;display:flex;flex-direction:column;">
+        <div class="card reveal">
+          <div class="card-icon"><svg class="icon"><use href="#i-book"/></svg></div>
+          <h3>Fonctions Arduino</h3>
+          <table class="results" style="margin-top:6px;font-size:12px;">
+            <thead><tr><th>Fonction</th><th>Rôle</th></tr></thead>
+            <tbody>
+              <tr><td><code>Serial.begin()</code></td><td>Ouvre communication série</td></tr>
+              <tr><td><code>pinMode()</code></td><td>Configure broche IN/OUT</td></tr>
+              <tr><td><code>analogRead()</code></td><td>Lit tension (0–1023)</td></tr>
+              <tr><td><code>digitalWrite()</code></td><td>Envoie HIGH/LOW</td></tr>
+              <tr><td><code>tone()</code></td><td>Signal carré → buzzer</td></tr>
+              <tr><td><code>noTone()</code></td><td>Arrête le buzzer</td></tr>
+              <tr><td><code>delay()</code></td><td>Pause en millisecondes</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="formula-box reveal">
+          <span class="f-com">// Conversion TMP36</span><br>
+          <span class="f-var">V</span> <span class="f-op">=</span> valeur_brute <span class="f-op">×</span> (5.0 / 1024.0)<br>
+          <span class="f-var">T</span> <span class="f-op">=</span> (<span class="f-var">V</span> <span class="f-op">−</span> 0.5) <span class="f-op">×</span> 100 <span class="f-com"> → en °C</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== SLIDE 10 — RÉSULTATS ===================== -->
+  <section class="slide">
+    <div class="slide-eyebrow reveal"><svg class="icon"><use href="#i-chart"/></svg> Résultats</div>
+    <h1 class="reveal">Simulation &amp; <span class="accent">résultats</span></h1>
+    <p class="subtitle reveal">Tests effectués dans Tinkercad avec différentes valeurs de température — le système réagit correctement dans tous les scénarios.</p>
+    <div class="slide-body cols">
+      <div class="col" style="gap:12px;display:flex;flex-direction:column;">
+        <div class="card reveal">
+          <div class="card-icon"><svg class="icon"><use href="#i-check"/></svg></div>
+          <h3>Résultats des tests</h3>
+          <table class="results" style="margin-top:6px;">
+            <thead><tr><th>Temp.</th><th>LED V.</th><th>LED R.</th><th>Buzzer</th><th>Statut</th></tr></thead>
+            <tbody>
+              <tr><td>20°C</td><td class="num">ON</td><td>OFF</td><td>OFF</td><td>Normal</td></tr>
+              <tr><td>25°C</td><td class="num">ON</td><td>OFF</td><td>OFF</td><td>Normal</td></tr>
+              <tr><td>29°C</td><td class="num">ON</td><td>OFF</td><td>OFF</td><td>Normal</td></tr>
+              <tr class="highlight"><td><b>30°C</b></td><td>OFF</td><td class="num"><b>ON</b></td><td class="num"><b>ON</b></td><td><b>ALERTE</b></td></tr>
+              <tr><td>35°C</td><td>OFF</td><td class="num">ON</td><td class="num">ON</td><td>Alerte</td></tr>
+              <tr><td>40°C</td><td>OFF</td><td class="num">ON</td><td class="num">ON</td><td>Alerte</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="grid grid-2">
+          <div class="stat card reveal"><div class="stat-value">100<span class="unit">%</span></div><div class="stat-label">Taux de réussite</div></div>
+          <div class="stat card gold reveal"><div class="stat-value">&lt;1<span class="unit">s</span></div><div class="stat-label">Temps réaction</div></div>
+        </div>
+      </div>
+      <div class="col" style="gap:12px;display:flex;flex-direction:column;">
+        <div class="card reveal">
+          <div class="card-icon"><svg class="icon"><use href="#i-monitor"/></svg></div>
+          <h3>Sortie moniteur série</h3>
+          <div class="code" style="font-size:11px;line-height:1.8;">
+<span class="c-com">==============================</span><br>
+<span class="c-com">  SYSTEME DE SURVEILLANCE</span><br>
+<span class="c-com">  DE TEMPERATURE</span><br>
+<span class="c-com">==============================</span><br><br>
+Brute: <span class="c-num">150</span> | V: <span class="c-num">0.73</span> | T: <span class="c-num">23.2</span>°C | <span class="c-fn">NORMAL</span><br>
+Brute: <span class="c-num">155</span> | V: <span class="c-num">0.76</span> | T: <span class="c-num">25.6</span>°C | <span class="c-fn">NORMAL</span><br>
+Brute: <span class="c-num">163</span> | V: <span class="c-num">0.80</span> | T: <span class="c-num">29.5</span>°C | <span class="c-fn">NORMAL</span><br>
+Brute: <span class="c-num">166</span> | V: <span class="c-num">0.81</span> | T: <span class="c-num">31.1</span>°C | <span class="c-key">*** ALERTE ***</span><br>
+Brute: <span class="c-num">174</span> | V: <span class="c-num">0.85</span> | T: <span class="c-num">34.9</span>°C | <span class="c-key">*** ALERTE ***</span>
+          </div>
+        </div>
+        <div class="card reveal">
+          <div class="card-icon"><svg class="icon"><use href="#i-eye"/></svg></div>
+          <h3>Observations</h3>
+          <p>• Transition <strong>instantanée</strong> entre normal et alerte<br>
+             • Retour à la normale <strong>immédiat</strong> quand T redescend<br>
+             • Moniteur série = suivi <strong>en temps réel</strong><br>
+             • Code 100% compatible <strong>matériel réel</strong></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== SLIDE 11 — DÉFIS ===================== -->
+  <section class="slide">
+    <div class="slide-eyebrow reveal"><svg class="icon"><use href="#i-alert"/></svg> Discussion</div>
+    <h1 class="reveal">Défis &amp; <span class="accent">limitations</span></h1>
+    <p class="subtitle reveal">Tout prototype a des contraintes — les documenter démontre la maturité technique et oriente les améliorations futures.</p>
+    <div class="slide-body">
+      <div class="grid grid-3">
+        <div class="card reveal">
+          <div class="card-icon"><svg class="icon"><use href="#i-wifi"/></svg></div>
+          <h3>Pas de connectivité</h3>
+          <p>Le système ne transmet pas les données via WiFi ou Bluetooth. Il n'est pas « connecté » au sens IoT complet. <strong>Solution :</strong> ajouter un ESP8266/ESP32.</p>
+        </div>
+        <div class="card reveal">
+          <div class="card-icon"><svg class="icon"><use href="#i-sliders"/></svg></div>
+          <h3>Seuil fixe (30°C)</h3>
+          <p>Le seuil est codé en dur — il faut reprogrammer pour le modifier. <strong>Solution :</strong> potentiomètre ou boutons pour ajustement dynamique.</p>
+        </div>
+        <div class="card reveal">
+          <div class="card-icon"><svg class="icon"><use href="#i-database"/></svg></div>
+          <h3>Pas de stockage</h3>
+          <p>Aucun historique des mesures n'est conservé. Les données disparaissent à l'arrêt. <strong>Solution :</strong> carte SD ou envoi vers un cloud.</p>
+        </div>
+        <div class="card reveal">
+          <div class="card-icon"><svg class="icon"><use href="#i-target"/></svg></div>
+          <h3>Précision ±1°C</h3>
+          <p>Le TMP36 a une précision limitée à ±1°C, insuffisante pour le médical. <strong>Solution :</strong> utiliser un DHT22 (±0.5°C) ou un thermocouple.</p>
+        </div>
+        <div class="card reveal">
+          <div class="card-icon"><svg class="icon"><use href="#i-monitor"/></svg></div>
+          <h3>Pas d'affichage local</h3>
+          <p>Les données ne sont visibles que via le moniteur série (PC nécessaire). <strong>Solution :</strong> écran LCD 16×2 ou OLED.</p>
+        </div>
+        <div class="card reveal">
+          <div class="card-icon"><svg class="icon"><use href="#i-activity"/></svg></div>
+          <h3>Oscillation au seuil</h3>
+          <p>Si la température fluctue autour de 30°C, le système alterne rapidement. <strong>Solution :</strong> implémenter une hystérésis (ex: alerte à 30°C, retour à 28°C).</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== SLIDE 12 — AMÉLIORATIONS ===================== -->
+  <section class="slide">
+    <div class="slide-eyebrow reveal"><svg class="icon"><use href="#i-trend"/></svg> Perspectives</div>
+    <h1 class="reveal">Améliorations <span class="accent">futures</span></h1>
+    <p class="subtitle reveal">Plusieurs axes pour transformer ce prototype en un système IoT complet et déployable.</p>
+    <div class="slide-body cols">
+      <div class="col" style="gap:12px;display:flex;flex-direction:column;">
+        <div class="card gold reveal">
+          <div class="card-icon"><svg class="icon"><use href="#i-wifi"/></svg></div>
+          <h3>Connectivité WiFi</h3>
+          <p>Remplacer Arduino par un <strong>ESP32</strong> (WiFi intégré). Envoyer les données vers <strong>ThingSpeak</strong> ou <strong>Firebase</strong>. Dashboard web temps réel pour visualiser les courbes de température à distance.</p>
+        </div>
+        <div class="card reveal">
+          <div class="card-icon"><svg class="icon"><use href="#i-monitor"/></svg></div>
+          <h3>Écran LCD / OLED</h3>
+          <p>Affichage local de la température sans PC. Écran <strong>LCD 16×2</strong> via I2C (2 broches seulement : SDA sur A4, SCL sur A5). Affichage autonome même sans ordinateur.</p>
+        </div>
+        <div class="card reveal">
+          <div class="card-icon"><svg class="icon"><use href="#i-bell"/></svg></div>
+          <h3>Notifications SMS/Email</h3>
+          <p>Alertes envoyées par <strong>IFTTT</strong>, <strong>Telegram Bot</strong> ou <strong>Twilio SMS</strong> quand le seuil est dépassé. Prévenir même à distance, 24h/24.</p>
+        </div>
+      </div>
+      <div class="col" style="gap:12px;display:flex;flex-direction:column;">
+        <div class="card reveal">
+          <div class="card-icon"><svg class="icon"><use href="#i-database"/></svg></div>
+          <h3>Stockage de données</h3>
+          <p>Module <strong>carte SD</strong> pour enregistrer l'historique avec horodatage. Export CSV pour analyse dans Excel ou Python (Pandas, Matplotlib).</p>
+        </div>
+        <div class="card reveal">
+          <div class="card-icon"><svg class="icon"><use href="#i-compass"/></svg></div>
+          <h3>Multi-capteurs</h3>
+          <p>Ajouter humidité (<strong>DHT22</strong>), pression (<strong>BMP280</strong>), qualité d'air (<strong>MQ-135</strong>). Transformer le système en station météo complète.</p>
+        </div>
+        <div class="card gold reveal">
+          <div class="card-icon"><svg class="icon"><use href="#i-cpu"/></svg></div>
+          <h3>Intelligence Artificielle</h3>
+          <p>Prédiction de tendances par <strong>séries temporelles</strong>. Détection d'anomalies par ML. Seuil adaptatif auto-appris. <strong>TinyML</strong> directement sur microcontrôleur.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== SLIDE 13 — CONCLUSION ===================== -->
+  <section class="slide slide-title">
+    <div class="slide-body" style="justify-content:center;">
+      <div class="reveal slide-eyebrow" style="justify-content:center;">
+        <svg class="icon"><use href="#i-flag"/></svg> Conclusion
+      </div>
+      <h1 class="reveal">Merci pour votre <span class="accent">attention</span></h1>
+      <p class="reveal subtitle">
+        Un système fonctionnel de surveillance de température —
+        du capteur <strong>TMP36</strong> à l'alerte <strong>LED + Buzzer</strong>,
+        piloté par un <strong>Arduino Uno</strong>,
+        validé par simulation <strong>Tinkercad</strong> et compatible matériel réel.
+      </p>
+      <div class="reveal grid grid-3" style="max-width:780px;margin:0 auto;">
+        <div class="card">
+          <div class="card-icon" style="margin:0 auto;"><svg class="icon"><use href="#i-thermo"/></svg></div>
+          <h3 style="text-align:center;">±1°C</h3>
+          <p style="text-align:center;">Précision TMP36<br>-40°C à +125°C</p>
+        </div>
+        <div class="card gold">
+          <div class="card-icon" style="margin:0 auto;background:var(--gold-100);color:var(--gold-600)"><svg class="icon"><use href="#i-zap"/></svg></div>
+          <h3 style="text-align:center;">&lt; 10€</h3>
+          <p style="text-align:center;">Coût total<br>du prototype</p>
+        </div>
+        <div class="card">
+          <div class="card-icon" style="margin:0 auto;"><svg class="icon"><use href="#i-check"/></svg></div>
+          <h3 style="text-align:center;">100%</h3>
+          <p style="text-align:center;">Tests réussis<br>Simulation Tinkercad</p>
+        </div>
+      </div>
+      <div class="reveal authors-block" style="margin-top:22px;">
+        <div class="author-card">
+          <div class="author-name">Moustapha Yehdih</div>
+          <div class="author-id">C34613</div>
+        </div>
+        <div class="author-card">
+          <div class="author-name">Mohamed Salem Ebnou Echvagha Oubeid</div>
+          <div class="author-id">C34794</div>
+        </div>
+      </div>
+      <div class="reveal meta" style="margin-top:16px;">
+        <div class="meta-item"><svg class="icon"><use href="#i-award"/></svg> Université de Nouakchott — FST</div>
+        <div class="meta-item"><svg class="icon"><use href="#i-git"/></svg> github.com/Muhammed-OTP</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== SLIDE 14 — QUESTIONS ===================== -->
+  <section class="slide slide-title">
+    <div class="slide-body" style="justify-content:center;">
+      <div class="reveal logo-badge">
+        <img src="../diagrams/logo_un.png" alt="Université de Nouakchott" style="width:100px;height:100px;object-fit:contain;" onerror="this.parentElement.innerHTML='&#127777;'">
+      </div>
+      <div class="reveal slide-eyebrow" style="justify-content:center;">
+        <svg class="icon"><use href="#i-help"/></svg> Questions &amp; Réponses
+      </div>
+      <h1 class="reveal">Des <span class="accent">questions</span> ?</h1>
+      <p class="reveal subtitle">
+        Nous sommes prêts à répondre à vos questions sur l'architecture,
+        le code Arduino, le capteur TMP36, la simulation Tinkercad,
+        ou les perspectives d'amélioration du système.
+      </p>
+      <div class="reveal grid grid-4" style="max-width:900px;margin:20px auto 0;">
+        <div class="card" style="text-align:center;">
+          <div class="card-icon" style="margin:0 auto;"><svg class="icon"><use href="#i-cpu"/></svg></div>
+          <h3>Arduino</h3>
+          <p>Plateforme &amp; code</p>
+        </div>
+        <div class="card" style="text-align:center;">
+          <div class="card-icon" style="margin:0 auto;"><svg class="icon"><use href="#i-thermo"/></svg></div>
+          <h3>Capteurs</h3>
+          <p>TMP36 &amp; CAN</p>
+        </div>
+        <div class="card gold" style="text-align:center;">
+          <div class="card-icon" style="margin:0 auto;"><svg class="icon"><use href="#i-compass"/></svg></div>
+          <h3>Circuit</h3>
+          <p>Conception &amp; câblage</p>
+        </div>
+        <div class="card" style="text-align:center;">
+          <div class="card-icon" style="margin:0 auto;"><svg class="icon"><use href="#i-trend"/></svg></div>
+          <h3>Perspectives</h3>
+          <p>WiFi, LCD, IA</p>
+        </div>
+      </div>
+      <div class="reveal authors-block" style="margin-top:24px;">
+        <div class="author-card">
+          <div class="author-name">Moustapha Yehdih</div>
+          <div class="author-id">C34613</div>
+        </div>
+        <div class="author-card">
+          <div class="author-name">Mohamed Salem Ebnou Echvagha Oubeid</div>
+          <div class="author-id">C34794</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== NAV ===================== -->
+  <nav class="navbar">
+    <button class="nav-btn" id="prevBtn" aria-label="Précédent">
+      <svg class="icon"><use href="#i-arrow-left"/></svg>
+    </button>
+    <div class="dots" id="dots"></div>
+    <button class="nav-btn" id="nextBtn" aria-label="Suivant">
+      <svg class="icon"><use href="#i-arrow-right"/></svg>
+    </button>
+  </nav>
+
+</main>
+</div>
+
+<script>
+(function () {
+  var deck = document.getElementById('deck');
+  var W = 1280, H = 720;
+
+  function scalePresentation() {
+    var sx = window.innerWidth  / W;
+    var sy = window.innerHeight / H;
+    var s  = Math.min(sx, sy);
+    deck.style.transform = 'scale(' + s + ')';
+  }
+  window.addEventListener('resize', scalePresentation);
+  scalePresentation();
+
+  var slides = Array.from(document.querySelectorAll('#deck > .slide'));
+  var total  = slides.length;
+  var current = 0;
+
+  var slideNum     = document.getElementById('slideNum');
+  var slideTotal   = document.getElementById('slideTotal');
+  var progressFill = document.getElementById('progressFill');
+  var dotsWrap     = document.getElementById('dots');
+  var prevBtn      = document.getElementById('prevBtn');
+  var nextBtn      = document.getElementById('nextBtn');
+
+  slideTotal.textContent = String(total).padStart(2, '0');
+
+  var dots = slides.map(function(_, i) {
+    var d = document.createElement('div');
+    d.className = 'dot';
+    d.setAttribute('role', 'button');
+    d.setAttribute('aria-label', 'Slide ' + (i + 1));
+    d.addEventListener('click', function() { goTo(i); });
+    dotsWrap.appendChild(d);
+    return d;
+  });
+
+  function render() {
+    slides.forEach(function(s, i) {
+      s.classList.remove('active', 'prev');
+      if (i === current)    s.classList.add('active');
+      else if (i < current) s.classList.add('prev');
+    });
+    dots.forEach(function(d, i) { d.classList.toggle('active', i === current); });
+    slideNum.textContent     = String(current + 1).padStart(2, '0');
+    progressFill.style.width = ((current + 1) / total * 100) + '%';
+    prevBtn.classList.toggle('disabled', current === 0);
+    nextBtn.classList.toggle('disabled', current === total - 1);
+  }
+
+  function goTo(i) { if (i >= 0 && i < total && i !== current) { current = i; render(); } }
+  function next()  { goTo(current + 1); }
+  function prev()  { goTo(current - 1); }
+
+  prevBtn.addEventListener('click', prev);
+  nextBtn.addEventListener('click', next);
+
+  window.addEventListener('keydown', function(e) {
+    switch (e.key) {
+      case 'ArrowRight': case 'ArrowDown': case 'PageDown': case ' ':
+        e.preventDefault(); next(); break;
+      case 'ArrowLeft': case 'ArrowUp': case 'PageUp':
+        e.preventDefault(); prev(); break;
+      case 'Home': e.preventDefault(); goTo(0); break;
+      case 'End':  e.preventDefault(); goTo(total - 1); break;
+    }
+  });
+
+  var tx = 0;
+  window.addEventListener('touchstart', function(e) { tx = e.changedTouches[0].screenX; });
+  window.addEventListener('touchend', function(e) {
+    var dx = e.changedTouches[0].screenX - tx;
+    if (Math.abs(dx) > 60) { dx < 0 ? next() : prev(); }
+  });
+
+  requestAnimationFrame(function() { requestAnimationFrame(function() { render(); }); });
+})();
+</script>
+</body>
+</html>

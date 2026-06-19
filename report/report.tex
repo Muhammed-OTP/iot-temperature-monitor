@@ -1,0 +1,591 @@
+% ============================================================
+% RAPPORT ACADÉMIQUE
+% Système de Surveillance de Température — IoT
+% ============================================================
+
+\documentclass[12pt, a4paper]{article}
+
+% --- Packages ---
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage{amsmath}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{caption}
+
+% --- Mise en page ---
+\geometry{margin=2.5cm}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.8em}
+
+% --- En-têtes et pieds de page ---
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small Système de Surveillance de Température}
+\fancyhead[R]{\small Master M1 — IoT}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% --- Style du code ---
+\lstdefinestyle{arduino}{
+    language=C,
+    basicstyle=\ttfamily\small,
+    keywordstyle=\color{blue}\bfseries,
+    commentstyle=\color{gray}\itshape,
+    stringstyle=\color{red},
+    numbers=left,
+    numberstyle=\tiny\color{gray},
+    numbersep=8pt,
+    breaklines=true,
+    frame=single,
+    backgroundcolor=\color{gray!5},
+    tabsize=2,
+    showstringspaces=false,
+    captionpos=b
+}
+
+% --- Liens ---
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    urlcolor=blue,
+    citecolor=blue
+}
+
+% ============================================================
+% DÉBUT DU DOCUMENT
+% ============================================================
+\begin{document}
+
+% --- PAGE DE COUVERTURE ---
+\begin{titlepage}
+    \centering
+    \vspace*{2cm}
+
+    {\Large \textbf{Université / École Supérieure}}\\[0.5cm]
+    {\large Master 1 — Intelligence Artificielle}\\[0.3cm]
+    {\large Module : Internet des Objets (IoT)}\\[2cm]
+
+    \rule{\textwidth}{1pt}\\[0.5cm]
+    {\Huge \textbf{Système de Surveillance\\de Température}}\\[0.3cm]
+    {\Large Projet IoT avec Arduino Uno}\\[0.5cm]
+    \rule{\textwidth}{1pt}\\[2cm]
+
+    {\large
+    \begin{tabular}{ll}
+        \textbf{Réalisé par :} & Moustapha Yehdih (C34613) \\
+                               & Mohamed Salem Ebnou Echvagha Oubeid (C34794) \\[1cm]
+        \textbf{Module :}      & Internet des Objets (IoT) \\
+        \textbf{Niveau :}      & Master 1 — Intelligence Artificielle \\
+        \textbf{Année :}       & 2025 / 2026 \\
+    \end{tabular}
+    }
+
+    \vfill
+    {\large Juin 2026}
+\end{titlepage}
+
+% --- TABLE DES MATIÈRES ---
+\tableofcontents
+\newpage
+
+% ============================================================
+% RÉSUMÉ
+% ============================================================
+\section*{Résumé}
+\addcontentsline{toc}{section}{Résumé}
+
+Ce rapport présente la conception et la réalisation d'un système de surveillance de température basé sur la plateforme Arduino Uno. Le système utilise un capteur analogique TMP36 pour mesurer la température ambiante en temps réel. Lorsque la température dépasse un seuil prédéfini de 30°C, le système déclenche une alerte visuelle (LED rouge) et sonore (buzzer piézoélectrique). Dans des conditions normales, une LED verte indique que la température est dans les limites acceptables. Les données de température sont également transmises via la communication série pour un suivi sur ordinateur. Le prototype a été simulé avec succès dans l'environnement Tinkercad et est entièrement compatible avec du matériel Arduino réel. Ce projet illustre les principes fondamentaux de l'Internet des Objets (IoT) : acquisition de données, traitement embarqué et réaction automatisée.
+
+\textbf{Mots-clés :} IoT, Arduino, capteur de température, TMP36, surveillance, système embarqué, alerte automatique.
+
+\newpage
+
+% ============================================================
+% 1. INTRODUCTION
+% ============================================================
+\section{Introduction}
+
+La surveillance de la température est un besoin fondamental dans de nombreux domaines : l'industrie, la santé, l'agriculture, et la vie quotidienne. Avec l'avènement de l'Internet des Objets (IoT), il est désormais possible de concevoir des systèmes de surveillance automatisés, peu coûteux et facilement déployables.
+
+Ce projet s'inscrit dans le cadre du module IoT du Master 1 en Intelligence Artificielle. L'objectif est de concevoir un prototype fonctionnel capable de :
+
+\begin{itemize}
+    \item Mesurer la température ambiante en continu
+    \item Afficher les valeurs mesurées
+    \item Détecter les températures anormales
+    \item Déclencher une alerte visuelle et sonore
+\end{itemize}
+
+Le système repose sur un microcontrôleur Arduino Uno, un capteur de température TMP36, des LEDs indicatrices et un buzzer piézoélectrique. Il a été développé et testé dans l'environnement de simulation Tinkercad, tout en restant entièrement compatible avec du matériel réel.
+
+Ce rapport détaille les fondamentaux théoriques, l'architecture du système, les choix techniques, l'implémentation et les résultats obtenus.
+
+% ============================================================
+% 2. FONDAMENTAUX DE L'IoT
+% ============================================================
+\section{Fondamentaux de l'IoT}
+
+\subsection{Définition}
+
+L'\textbf{Internet des Objets} (IoT — \textit{Internet of Things}) désigne l'interconnexion d'objets physiques avec le monde numérique. Ces objets, équipés de capteurs, de processeurs et de moyens de communication, sont capables de collecter des données, de les traiter et d'agir sur leur environnement.
+
+\subsection{Architecture IoT}
+
+Un système IoT typique se compose de quatre couches :
+
+\begin{enumerate}
+    \item \textbf{Couche de perception} — Les capteurs qui mesurent le monde physique (température, humidité, lumière, mouvement, etc.)
+    \item \textbf{Couche réseau} — Les protocoles de communication (WiFi, Bluetooth, LoRa, Zigbee, etc.)
+    \item \textbf{Couche traitement} — Le microcontrôleur ou le serveur qui analyse les données
+    \item \textbf{Couche application} — L'interface utilisateur ou le système de décision
+\end{enumerate}
+
+\subsection{Analogie simple}
+
+L'IoT fonctionne comme le système nerveux humain :
+\begin{itemize}
+    \item Les \textbf{capteurs} sont les organes sensoriels (yeux, peau, oreilles)
+    \item Le \textbf{microcontrôleur} est le cerveau qui traite l'information
+    \item Les \textbf{actuateurs} (LEDs, buzzer, moteurs) sont les muscles qui réagissent
+    \item La \textbf{communication} est le système nerveux qui transmet les signaux
+\end{itemize}
+
+\subsection{Applications de l'IoT}
+
+\begin{table}[H]
+    \centering
+    \caption{Exemples d'applications IoT}
+    \begin{tabular}{lll}
+        \toprule
+        \textbf{Domaine} & \textbf{Application} & \textbf{Capteur utilisé} \\
+        \midrule
+        Santé      & Suivi de la température corporelle & Thermomètre connecté \\
+        Industrie  & Surveillance des machines            & Capteur de vibration \\
+        Agriculture & Irrigation automatique              & Capteur d'humidité du sol \\
+        Maison     & Thermostat intelligent                & Capteur de température \\
+        Transport  & Suivi de flotte                       & GPS + accéléromètre \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+% ============================================================
+% 3. PLATEFORME ARDUINO
+% ============================================================
+\section{Plateforme Arduino}
+
+\subsection{Qu'est-ce qu'Arduino ?}
+
+\textbf{Arduino} est une plateforme de prototypage électronique open-source. Elle se compose de :
+
+\begin{itemize}
+    \item Une \textbf{carte électronique} (matériel) basée sur un microcontrôleur ATmega
+    \item Un \textbf{environnement de développement} (logiciel) — l'Arduino IDE
+    \item Un \textbf{langage de programmation} simplifié basé sur C/C++
+\end{itemize}
+
+\subsection{Arduino Uno — Caractéristiques}
+
+\begin{table}[H]
+    \centering
+    \caption{Spécifications de l'Arduino Uno}
+    \begin{tabular}{ll}
+        \toprule
+        \textbf{Caractéristique} & \textbf{Valeur} \\
+        \midrule
+        Microcontrôleur & ATmega328P \\
+        Tension de fonctionnement & 5V \\
+        Broches numériques (I/O) & 14 (dont 6 PWM) \\
+        Broches analogiques & 6 (A0–A5) \\
+        Résolution CAN & 10 bits (0–1023) \\
+        Mémoire Flash & 32 Ko \\
+        SRAM & 2 Ko \\
+        Fréquence d'horloge & 16 MHz \\
+        Communication & USB, UART, SPI, I2C \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\subsection{Pourquoi Arduino pour l'IoT ?}
+
+Arduino est idéal pour les projets IoT éducatifs car :
+\begin{itemize}
+    \item Il est \textbf{simple à programmer} (pas besoin de connaissances avancées en électronique)
+    \item Il est \textbf{peu coûteux} (environ 5--25€ selon le modèle)
+    \item Il dispose d'une \textbf{communauté immense} et d'une documentation abondante
+    \item Il est \textbf{compatible} avec des centaines de capteurs et modules
+    \item Il peut être \textbf{simulé gratuitement} dans Tinkercad
+\end{itemize}
+
+% ============================================================
+% 4. OBJECTIFS DU PROJET
+% ============================================================
+\section{Objectifs du Projet}
+
+\subsection{Objectif général}
+
+Concevoir et réaliser un système embarqué capable de surveiller la température en temps réel et de déclencher des alertes automatiques en cas de dépassement d'un seuil prédéfini.
+
+\subsection{Objectifs spécifiques}
+
+\begin{enumerate}
+    \item Lire la température en continu à l'aide d'un capteur analogique
+    \item Convertir le signal analogique en valeur de température (°C)
+    \item Afficher les valeurs de température sur le moniteur série
+    \item Indiquer l'état du système par des LEDs (verte = normal, rouge = alerte)
+    \item Émettre une alarme sonore lorsque le seuil est dépassé
+    \item Documenter l'architecture et le fonctionnement du système
+\end{enumerate}
+
+% ============================================================
+% 5. ARCHITECTURE DU SYSTÈME
+% ============================================================
+\section{Architecture du Système}
+
+\subsection{Vue d'ensemble}
+
+Le système suit le modèle classique \textbf{Entrée → Traitement → Sortie} :
+
+\begin{verbatim}
+┌──────────┐     ┌──────────────┐     ┌────────────────┐
+│  ENTRÉE  │────▶│  TRAITEMENT  │────▶│    SORTIE      │
+│  TMP36   │     │  Arduino Uno │     │  LEDs + Buzzer │
+│ (capteur)│     │  (programme) │     │  + Série       │
+└──────────┘     └──────────────┘     └────────────────┘
+\end{verbatim}
+
+\subsection{Flux de données}
+
+\begin{enumerate}
+    \item Le capteur TMP36 mesure la température et produit une \textbf{tension analogique}
+    \item L'Arduino lit cette tension via son \textbf{convertisseur analogique-numérique} (CAN)
+    \item Le programme convertit la valeur numérique en \textbf{degrés Celsius}
+    \item La température est comparée au \textbf{seuil} (30°C)
+    \item Selon le résultat, les \textbf{actuateurs} sont activés ou désactivés
+    \item Les données sont envoyées au \textbf{moniteur série} via USB
+\end{enumerate}
+
+% ============================================================
+% 6. DESCRIPTION DES COMPOSANTS
+% ============================================================
+\section{Description des Composants}
+
+\subsection{Capteur de température TMP36}
+
+Le \textbf{TMP36} est un capteur de température analogique fabriqué par Analog Devices.
+
+\begin{itemize}
+    \item \textbf{Plage de mesure :} $-40$°C à $+125$°C
+    \item \textbf{Précision :} $\pm 1$°C (à 25°C)
+    \item \textbf{Tension de sortie :} linéaire, 10 mV/°C avec un offset de 500 mV
+    \item \textbf{Alimentation :} 2.7V à 5.5V
+\end{itemize}
+
+\textbf{Formule de conversion :}
+\begin{equation}
+    T(°C) = (V_{out} - 0.5) \times 100
+\end{equation}
+
+où $V_{out}$ est la tension de sortie du capteur en volts.
+
+\textbf{Exemple :} Si le capteur produit 0.75V :
+$$T = (0.75 - 0.5) \times 100 = 25°C$$
+
+\subsection{LED (Diode Électroluminescente)}
+
+Une LED est un composant qui émet de la lumière lorsqu'un courant la traverse.
+
+\begin{itemize}
+    \item \textbf{LED verte :} indique un état normal (température sous le seuil)
+    \item \textbf{LED rouge :} indique une alerte (température au-dessus du seuil)
+    \item \textbf{Résistance de protection :} 220$\Omega$ en série pour limiter le courant
+\end{itemize}
+
+\textbf{Pourquoi une résistance ?}
+Sans résistance, le courant serait trop élevé et la LED brûlerait. La loi d'Ohm donne :
+\begin{equation}
+    I = \frac{V_{Arduino} - V_{LED}}{R} = \frac{5V - 2V}{220\Omega} \approx 13.6 \text{ mA}
+\end{equation}
+Ce courant est sûr pour la LED (maximum typique : 20 mA).
+
+\subsection{Buzzer piézoélectrique}
+
+Le buzzer piézoélectrique convertit un signal électrique en son.
+
+\begin{itemize}
+    \item \textbf{Type :} piézoélectrique (pas électromagnétique)
+    \item \textbf{Fonctionnement :} la fonction \texttt{tone()} génère un signal carré
+    \item \textbf{Fréquence utilisée :} 1000 Hz (son aigu et perceptible)
+\end{itemize}
+
+\subsection{Arduino Uno}
+
+Le microcontrôleur central qui :
+\begin{itemize}
+    \item Lit la tension du capteur via la broche A0
+    \item Exécute la logique de comparaison
+    \item Contrôle les LEDs et le buzzer
+    \item Communique avec le PC via USB (série)
+\end{itemize}
+
+% ============================================================
+% 7. CONCEPTION DU CIRCUIT
+% ============================================================
+\section{Conception du Circuit}
+
+\subsection{Tableau de câblage}
+
+\begin{table}[H]
+    \centering
+    \caption{Connexions du circuit}
+    \begin{tabular}{llll}
+        \toprule
+        \textbf{Composant} & \textbf{Broche composant} & \textbf{Broche Arduino} & \textbf{Rôle} \\
+        \midrule
+        TMP36 & VCC (gauche) & 5V & Alimentation \\
+        TMP36 & Signal (centre) & A0 & Mesure \\
+        TMP36 & GND (droite) & GND & Masse \\
+        LED Verte & Anode (+) via 220$\Omega$ & D3 & Indicateur normal \\
+        LED Verte & Cathode (-) & GND & Masse \\
+        LED Rouge & Anode (+) via 220$\Omega$ & D4 & Indicateur alerte \\
+        LED Rouge & Cathode (-) & GND & Masse \\
+        Buzzer & Borne (+) & D5 & Alarme sonore \\
+        Buzzer & Borne (-) & GND & Masse \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\subsection{Schéma du circuit}
+
+\begin{verbatim}
+Arduino 5V ─────────────── TMP36 VCC (gauche)
+Arduino GND ────────────── TMP36 GND (droite)
+Arduino A0 ─────────────── TMP36 Signal (centre)
+Arduino D3 ── [220Ω] ──── LED Verte (+) ── GND
+Arduino D4 ── [220Ω] ──── LED Rouge (+) ── GND
+Arduino D5 ─────────────── Buzzer (+) ──── GND
+\end{verbatim}
+
+% ============================================================
+% 8. IMPLÉMENTATION LOGICIELLE
+% ============================================================
+\section{Implémentation Logicielle}
+
+\subsection{Structure du programme}
+
+Le programme Arduino suit la structure standard :
+
+\begin{itemize}
+    \item \texttt{setup()} — Initialisation (exécutée une seule fois)
+    \item \texttt{loop()} — Boucle principale (exécutée en continu)
+\end{itemize}
+
+\subsection{Algorithme}
+
+\begin{verbatim}
+DÉBUT
+  Initialiser communication série (9600 bauds)
+  Configurer broches en sortie (D3, D4, D5)
+  Afficher message de bienvenue
+
+  BOUCLE INFINIE :
+    valeurBrute ← analogRead(A0)
+    tension ← valeurBrute × (5.0 / 1024.0)
+    température ← (tension - 0.5) × 100
+
+    Afficher valeurBrute, tension, température
+
+    SI température < 30.0 ALORS
+      LED verte ← ALLUMÉE
+      LED rouge ← ÉTEINTE
+      Buzzer ← ÉTEINT
+      Afficher "NORMAL"
+    SINON
+      LED verte ← ÉTEINTE
+      LED rouge ← ALLUMÉE
+      Buzzer ← ACTIVÉ (1000 Hz)
+      Afficher "ALERTE"
+    FIN SI
+
+    Attendre 1 seconde
+  FIN BOUCLE
+FIN
+\end{verbatim}
+
+\subsection{Fonctions Arduino utilisées}
+
+\begin{table}[H]
+    \centering
+    \caption{Fonctions Arduino et leur rôle}
+    \begin{tabular}{lp{9cm}}
+        \toprule
+        \textbf{Fonction} & \textbf{Description} \\
+        \midrule
+        \texttt{Serial.begin(9600)} & Initialise la communication série à 9600 bauds \\
+        \texttt{pinMode(pin, OUTPUT)} & Configure une broche en mode sortie \\
+        \texttt{analogRead(A0)} & Lit la tension sur A0 (retourne 0--1023) \\
+        \texttt{digitalWrite(pin, HIGH/LOW)} & Envoie 5V (HIGH) ou 0V (LOW) sur une broche \\
+        \texttt{tone(pin, freq)} & Génère un signal carré à la fréquence donnée \\
+        \texttt{noTone(pin)} & Arrête le signal du buzzer \\
+        \texttt{delay(ms)} & Pause le programme pendant \textit{ms} millisecondes \\
+        \texttt{Serial.print()} & Affiche du texte sur le moniteur série \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\subsection{Conversion analogique-numérique}
+
+L'Arduino Uno dispose d'un CAN 10 bits :
+\begin{itemize}
+    \item Plage d'entrée : 0V à 5V
+    \item Résolution : $2^{10} = 1024$ niveaux
+    \item Pas de quantification : $\frac{5V}{1024} \approx 4.88$ mV
+\end{itemize}
+
+La conversion se fait en deux étapes :
+\begin{align}
+    V_{out} &= \text{valeurBrute} \times \frac{5.0}{1024.0} \\
+    T(°C) &= (V_{out} - 0.5) \times 100
+\end{align}
+
+% ============================================================
+% 9. RÉSULTATS
+% ============================================================
+\section{Résultats}
+
+\subsection{Tests effectués}
+
+Le système a été testé dans Tinkercad avec différentes valeurs de température :
+
+\begin{table}[H]
+    \centering
+    \caption{Résultats des tests}
+    \begin{tabular}{ccccl}
+        \toprule
+        \textbf{Température} & \textbf{LED Verte} & \textbf{LED Rouge} & \textbf{Buzzer} & \textbf{Statut} \\
+        \midrule
+        20°C & ON  & OFF & OFF & Normal \\
+        25°C & ON  & OFF & OFF & Normal \\
+        29°C & ON  & OFF & OFF & Normal \\
+        30°C & OFF & ON  & ON  & Alerte \\
+        35°C & OFF & ON  & ON  & Alerte \\
+        40°C & OFF & ON  & ON  & Alerte \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\subsection{Sortie du moniteur série}
+
+Exemple de sortie observée :
+\begin{verbatim}
+Valeur brute : 150  |  Tension : 0.73 V  |  Temperature : 23.2 C  |  Statut : NORMAL
+Valeur brute : 163  |  Tension : 0.80 V  |  Temperature : 29.5 C  |  Statut : NORMAL
+Valeur brute : 166  |  Tension : 0.81 V  |  Temperature : 31.1 C  |  Statut : *** ALERTE ***
+\end{verbatim}
+
+\subsection{Observations}
+
+\begin{itemize}
+    \item Le système réagit \textbf{immédiatement} aux changements de température
+    \item La transition entre les états normal et alerte est \textbf{fiable}
+    \item Le moniteur série fournit un suivi \textbf{en temps réel}
+    \item Le buzzer s'active et se désactive correctement selon le seuil
+\end{itemize}
+
+% ============================================================
+% 10. DISCUSSION
+% ============================================================
+\section{Discussion}
+
+Ce projet démontre avec succès les principes fondamentaux de l'IoT appliqués à la surveillance de température. Le prototype respecte le modèle Entrée → Traitement → Sortie qui est au cœur de tout système IoT.
+
+\textbf{Points forts :}
+\begin{itemize}
+    \item Architecture simple et compréhensible
+    \item Code bien structuré et documenté
+    \item Compatible simulation (Tinkercad) et matériel réel
+    \item Réaction temps réel aux changements de température
+    \item Faible coût de réalisation
+\end{itemize}
+
+\textbf{Choix techniques justifiés :}
+\begin{itemize}
+    \item \textbf{TMP36 vs DHT11 :} Le TMP36 est analogique et plus simple à utiliser (pas de bibliothèque externe nécessaire)
+    \item \textbf{Seuil fixe vs configurable :} Un seuil fixe simplifie le code pour un prototype éducatif
+    \item \textbf{delay() vs millis() :} \texttt{delay()} est suffisant pour un système à une seule tâche
+\end{itemize}
+
+% ============================================================
+% 11. LIMITATIONS
+% ============================================================
+\section{Limitations}
+
+\begin{enumerate}
+    \item \textbf{Pas de connectivité réseau :} Le système ne transmet pas les données via WiFi ou Bluetooth. Il n'est pas "connecté" au sens IoT complet.
+    \item \textbf{Seuil fixe :} Le seuil de 30°C est codé en dur. Il ne peut pas être modifié sans reprogrammer l'Arduino.
+    \item \textbf{Pas de stockage de données :} Les mesures ne sont pas enregistrées. Il n'y a pas d'historique.
+    \item \textbf{Précision limitée :} Le TMP36 a une précision de $\pm 1$°C, ce qui peut être insuffisant pour certaines applications.
+    \item \textbf{Pas d'affichage local :} Les données ne sont visibles que via le moniteur série (PC nécessaire).
+    \item \textbf{Alimentation USB :} Le système dépend d'une connexion USB pour l'alimentation.
+\end{enumerate}
+
+% ============================================================
+% 12. AMÉLIORATIONS FUTURES
+% ============================================================
+\section{Améliorations Futures}
+
+Pour évoluer vers un système IoT complet, plusieurs améliorations sont envisageables :
+
+\begin{enumerate}
+    \item \textbf{Connectivité WiFi :} Utiliser un ESP8266 ou ESP32 pour envoyer les données vers un serveur cloud (ThingSpeak, Firebase, etc.)
+    \item \textbf{Écran LCD :} Ajouter un écran LCD 16×2 ou OLED pour afficher la température localement
+    \item \textbf{Application web :} Créer un tableau de bord pour visualiser les données en temps réel
+    \item \textbf{Stockage de données :} Enregistrer les mesures sur une carte SD ou dans une base de données
+    \item \textbf{Capteur amélioré :} Utiliser un DHT22 pour mesurer aussi l'humidité
+    \item \textbf{Seuil configurable :} Ajouter des boutons ou un potentiomètre pour ajuster le seuil
+    \item \textbf{Notifications :} Envoyer des alertes par email ou SMS via des services comme IFTTT
+    \item \textbf{Alimentation autonome :} Utiliser une batterie avec un panneau solaire
+    \item \textbf{Boîtier :} Concevoir un boîtier imprimé en 3D pour le déploiement
+    \item \textbf{Multi-capteurs :} Ajouter des capteurs de pression, luminosité, gaz, etc.
+\end{enumerate}
+
+% ============================================================
+% 13. CONCLUSION
+% ============================================================
+\section{Conclusion}
+
+Ce projet a permis de concevoir et de réaliser un système de surveillance de température fonctionnel utilisant la plateforme Arduino Uno. Le prototype démontre les principes fondamentaux de l'Internet des Objets : l'acquisition de données par un capteur (TMP36), le traitement embarqué par un microcontrôleur (Arduino), et la réaction automatisée via des actuateurs (LEDs et buzzer).
+
+Le système a été validé par simulation dans Tinkercad et répond à tous les objectifs fixés : mesure continue de la température, affichage en temps réel, détection d'anomalies et déclenchement d'alertes.
+
+Bien que le prototype présente des limitations (absence de connectivité réseau, seuil fixe, pas de stockage), il constitue une base solide pour le développement d'un système IoT complet. Les améliorations futures identifiées (WiFi, cloud, écran LCD) permettraient de transformer ce prototype en un produit déployable.
+
+Ce projet nous a permis de comprendre concrètement le fonctionnement d'un système IoT, de maîtriser la programmation Arduino, et d'acquérir des compétences en conception de circuits électroniques.
+
+% ============================================================
+% 14. RÉFÉRENCES
+% ============================================================
+\section*{Références}
+\addcontentsline{toc}{section}{Références}
+
+\begin{enumerate}[label={[\arabic*]}]
+    \item Arduino. \textit{Arduino Uno Rev3 — Documentation officielle}. \url{https://docs.arduino.cc/hardware/uno-rev3/}
+    \item Analog Devices. \textit{TMP36 — Low Voltage Temperature Sensor — Datasheet}. \url{https://www.analog.com/en/products/tmp36.html}
+    \item Arduino. \textit{Référence du langage Arduino}. \url{https://www.arduino.cc/reference/fr/}
+    \item Autodesk. \textit{Tinkercad Circuits — Simulateur en ligne}. \url{https://www.tinkercad.com/circuits}
+    \item Monk, S. (2016). \textit{Programming Arduino: Getting Started with Sketches}. 2e édition, McGraw-Hill Education.
+    \item Schwartz, M. (2016). \textit{Internet of Things with Arduino Cookbook}. Packt Publishing.
+    \item Guinard, D. \& Trifa, V. (2016). \textit{Building the Web of Things}. Manning Publications.
+    \item Rose, K., Eldridge, S. \& Chapin, L. (2015). \textit{The Internet of Things: An Overview}. Internet Society (ISOC).
+\end{enumerate}
+
+\end{document}
